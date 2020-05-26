@@ -385,16 +385,17 @@ class Import
      *
      * @param array $properties
      * @param string $tableName
+     * @param bool $preserveUid
      * @return void
      * @throws DBALException
      */
-    protected function insertRecord(array $properties, string $tableName, bool $generateUid = false): void
+    protected function insertRecord(array $properties, string $tableName, bool $preserveUid = false): void
     {
         $oldIdentifier = $newIdentifier = (int)$properties['uid'];
         $connection = DatabaseUtility::getConnectionForTable($tableName);
-        $properties = $this->prepareProperties($properties, $tableName, $generateUid);
+        $properties = $this->prepareProperties($properties, $tableName, !$preserveUid);
         $connection->insert($tableName, $properties);
-        if ($generateUid) {
+        if (!$preserveUid) {
             $newIdentifier = (int)$connection->lastInsertId($tableName);
         }
         if ($oldIdentifier > 0) {
