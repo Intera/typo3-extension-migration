@@ -37,6 +37,16 @@ class Import
     protected $pid = 0;
 
     /**
+     * @var bool
+     */
+    protected $updateTimestamps = true;
+
+    /**
+     * @var bool
+     */
+    protected $preservePageUids = false;
+
+    /**
      * Hold the complete configuration like
      *
      *  'excludedTables' => [
@@ -152,6 +162,16 @@ class Import
         return count($this->jsonArray['records']['pages']);
     }
 
+    public function disableTimestampUpdate(): void
+    {
+        $this->updateTimestamps = false;
+    }
+
+    public function preservePageUids(): void
+    {
+        $this->preservePageUids = true;
+    }
+
     /**
      * @return void
      * @throws DBALException
@@ -159,7 +179,7 @@ class Import
     protected function importPages(): void
     {
         foreach ($this->jsonArray['records']['pages'] as $properties) {
-            $this->insertRecord($properties, 'pages');
+            $this->insertRecord($properties, 'pages', $this->preservePageUids);
         }
     }
 
@@ -368,13 +388,15 @@ class Import
      * @return void
      * @throws DBALException
      */
-    protected function insertRecord(array $properties, string $tableName): void
+    protected function insertRecord(array $properties, string $tableName, bool $generateUid = false): void
     {
-        $oldIdentifier = (int)$properties['uid'];
+        $oldIdentifier = $newIdentifier = (int)$properties['uid'];
         $connection = DatabaseUtility::getConnectionForTable($tableName);
-        $properties = $this->prepareProperties($properties, $tableName);
+        $properties = $this->prepareProperties($properties, $tableName, $generateUid);
         $connection->insert($tableName, $properties);
-        $newIdentifier = (int)$connection->lastInsertId($tableName);
+        if ($generateUid) {
+            $newIdentifier = (int)$connection->lastInsertId($tableName);
+        }
         if ($oldIdentifier > 0) {
             $this->mappingService->setNew($newIdentifier, $oldIdentifier, $tableName);
         }
@@ -416,13 +438,17 @@ class Import
      *
      * @param array $properties
      * @param string $tableName
+     * @param bool $clearUid
      * @return array
      * @throws DBALException
      */
-    protected function prepareProperties(array $properties, string $tableName): array
+    protected function prepareProperties(array $properties, string $tableName, bool $clearUid = true): array
     {
-        unset($properties['uid']);
-        if (DatabaseUtility::isFieldExistingInTable('tstamp', $tableName) === true) {
+        if ($clearUid) {
+            unset($properties['uid']);
+        }
+        if ($this->updateTimestamps
+            && DatabaseUtility::isFieldExistingInTable('tstamp', $tableName) === true) {
             $properties['tstamp'] = time();
         }
         if (DatabaseUtility::isFieldExistingInTable('pid', $tableName) === true) {

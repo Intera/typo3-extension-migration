@@ -8,6 +8,7 @@ use In2code\Migration\Utility\DatabaseUtility;
 use In2code\Migration\Utility\ObjectUtility;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -36,6 +37,18 @@ class ImportCommand extends AbstractPortCommand
             'Path to configuration file',
             self::CONFIGURATION_PATH
         );
+        $this->addOption(
+            'preservePageUids',
+            null,
+            InputOption::VALUE_NONE,
+            'The page uids will not be regenerated'
+        );
+        $this->addOption(
+            'preserveTimestamps',
+            null,
+            InputOption::VALUE_NONE,
+            'The timestamps will not be updated'
+        );
     }
 
     /**
@@ -51,6 +64,7 @@ class ImportCommand extends AbstractPortCommand
      */
     public function execute(InputInterface $input, OutputInterface $output): int
     {
+        /** @var Import $importService */
         /** @noinspection PhpMethodParametersCountMismatchInspection */
         $importService = ObjectUtility::getObjectManager()->get(
             Import::class,
@@ -58,6 +72,12 @@ class ImportCommand extends AbstractPortCommand
             (int)$input->getArgument('pid'),
             $this->getCompleteConfiguration($input->getArgument('configuration'))
         );
+        if ($input->getOption('preservePageUids')) {
+            $importService->preservePageUids();
+        }
+        if ($input->getOption('preserveTimestamps')) {
+            $importService->disableTimestampUpdate();
+        }
         try {
             $this->checkTarget((int)$input->getArgument('pid'));
             $pages = $importService->import();
