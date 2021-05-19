@@ -292,6 +292,7 @@ class Export
     protected function extendWithFilesBasic(int $fileIdentifier): void
     {
         $fileProperties = $this->getPropertiesFromIdentifierAndTable($fileIdentifier, 'sys_file');
+        $this->addFileMetadata((int)$fileProperties['uid']);
         $this->jsonArray['records']['sys_file'][(int)$fileProperties['uid']] = $fileProperties;
 
         $pathAndFilename = DatabaseUtility::getFilePathAndNameByStorageAndIdentifier(
@@ -309,6 +310,21 @@ class Export
             $fileArray['uri'] = $absolutePaF;
         }
         $this->jsonArray['files'][(int)$fileProperties['uid']] = $fileArray;
+    }
+
+    protected function addFileMetadata(int $fileUid): void
+    {
+        $queryBuilder = DatabaseUtility::getQueryBuilderForTable('sys_file_metadata', true);
+        $metadataRecords = $queryBuilder
+            ->select('*')
+            ->from('sys_file_metadata')
+            ->where('file=' . $fileUid)
+            ->execute()
+            ->fetchAll();
+
+        foreach ($metadataRecords as $metadataRecord) {
+            $this->jsonArray['records']['sys_file_metadata'][(int)$metadataRecord['uid']] = $metadataRecord;
+        }
     }
 
     /**

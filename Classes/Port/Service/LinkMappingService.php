@@ -418,7 +418,18 @@ class LinkMappingService
      */
     protected function getPropertiesWithRelations(): array
     {
-        return (array)$this->configuration['linkMapping']['propertiesWithRelations'];
+        $defaultPropertiesWithRelations = [
+            'sys_file_metadata' => [
+                [
+                    'field' => 'file',
+                    'table' => 'sys_file',
+                ],
+            ]
+        ];
+        return array_merge(
+            $defaultPropertiesWithRelations,
+            (array)$this->configuration['linkMapping']['propertiesWithRelations']
+        );
     }
 
     /**
