@@ -140,7 +140,14 @@ return [
                     'field' => 'parent_category',
                     'table' => 'tt_news_cat'
                 ]
-            ]
+            ],
+            // Example config for records with dynamic parent tables.
+            // 'tx_my_ext_table' => [
+            //     [
+            //         'field' => 'parent_record',
+            //         'tableNameField' => 'parent_table'
+            //     ]
+            // ]
         ],
 
         /**

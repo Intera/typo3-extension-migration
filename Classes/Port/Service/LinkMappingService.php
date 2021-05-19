@@ -5,6 +5,7 @@ namespace In2code\Migration\Port\Service;
 use Doctrine\DBAL\DBALException;
 use In2code\Migration\Utility\DatabaseUtility;
 use In2code\Migration\Utility\StringUtility;
+use RuntimeException;
 use TYPO3\CMS\Core\Utility\ArrayUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -122,13 +123,39 @@ class LinkMappingService
         if (isset($this->getPropertiesWithRelations()[$tableName])) {
             foreach ($this->getPropertiesWithRelations()[$tableName] as $configuration) {
                 $field = $configuration['field'];
-                $table = $configuration['table'];
+                $table = $this->getRelationTable($configuration, $properties, $tableName);
                 if (array_key_exists($field, $properties)) {
                     $properties[$field] = $this->updateValueWithSimpleLinks((string)$properties[$field], $table);
                 }
             }
         }
         return $properties;
+    }
+
+    protected function getRelationTable(array $configuration, array $properties, string $parentTable): string
+    {
+        $table = $configuration['table'] ?? '';
+        if ($table) {
+            return $table;
+        }
+
+        $tableNameField = $configuration['tableNameField'] ?? '';
+        if (!$tableNameField) {
+            throw new RuntimeException(
+                sprintf(
+                    'Neither table nor tableNameField is configured for %s:%s',
+                    $parentTable,
+                    $configuration['field']
+                )
+            );
+        }
+        $table = $properties[$tableNameField] ?? '';
+        if (!$table) {
+            throw new RuntimeException(
+                sprintf('table field %s is empty in record %s:%d', $tableNameField, $parentTable, $properties['uid'])
+            );
+        }
+        return $table;
     }
 
     /**
