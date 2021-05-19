@@ -5,6 +5,7 @@ namespace In2code\Migration\Port\Service;
 use Doctrine\DBAL\DBALException;
 use In2code\Migration\Utility\DatabaseUtility;
 use In2code\Migration\Utility\StringUtility;
+use TYPO3\CMS\Core\Utility\ArrayUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -418,7 +419,7 @@ class LinkMappingService
      */
     protected function getPropertiesWithRelations(): array
     {
-        $defaultPropertiesWithRelations = [
+        $properties = [
             'sys_file_metadata' => [
                 [
                     'field' => 'file',
@@ -426,10 +427,12 @@ class LinkMappingService
                 ],
             ]
         ];
-        return array_merge(
-            $defaultPropertiesWithRelations,
+        ArrayUtility::mergeRecursiveWithOverrule(
+            $properties,
             (array)$this->configuration['linkMapping']['propertiesWithRelations']
         );
+
+        return $properties;
     }
 
     /**
