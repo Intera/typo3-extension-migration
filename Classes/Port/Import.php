@@ -11,6 +11,7 @@ use In2code\Migration\Signal\SignalTrait;
 use In2code\Migration\Utility\DatabaseUtility;
 use In2code\Migration\Utility\FileUtility;
 use In2code\Migration\Utility\ObjectUtility;
+use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\SignalSlot\Exception\InvalidSlotException;
 use TYPO3\CMS\Extbase\SignalSlot\Exception\InvalidSlotReturnException;
@@ -118,6 +119,14 @@ class Import
     protected $jsonArray = [];
 
     /**
+     * UIDs of pages that were not imported because they already existed
+     * in the target instance.
+     *
+     * @var array
+     */
+    protected $existingPageUids = [];
+
+    /**
      * @var MappingService
      */
     protected $mappingService = null;
@@ -179,8 +188,27 @@ class Import
     protected function importPages(): void
     {
         foreach ($this->jsonArray['records']['pages'] as $properties) {
+            $pageUid = (int)$properties['uid'];
+            $existingPage = BackendUtility::getRecord('pages', $pageUid);
+            if ($existingPage) {
+                $this->existingPageUids[] = $pageUid;
+                $this->replaceImportPageWithExisting($existingPage, $properties);
+                continue;
+            }
+
             $this->insertRecord($properties, 'pages', $this->preservePageUids);
         }
+    }
+
+    protected function replaceImportPageWithExisting(array $existingPage, array $importPage)
+    {
+        $builder = DatabaseUtility::getQueryBuilderForTable('pages');
+
+        $builder->update('pages')
+            ->set('pid', $importPage['pid'])
+            ->set('sorting', $importPage['sorting'])
+            ->where($builder->expr()->eq('uid', $builder->createNamedParameter($existingPage['uid'])))
+            ->execute();
     }
 
     /**
@@ -391,6 +419,11 @@ class Import
      */
     protected function insertRecord(array $properties, string $tableName, bool $preserveUid = false): void
     {
+        $pageUid = (int)($properties['pid'] ?? 0);
+        if ($pageUid && in_array($pageUid, $this->existingPageUids, true)) {
+            return;
+        }
+
         $oldIdentifier = $newIdentifier = (int)$properties['uid'];
         $connection = DatabaseUtility::getConnectionForTable($tableName);
         $properties = $this->prepareProperties($properties, $tableName, !$preserveUid);
