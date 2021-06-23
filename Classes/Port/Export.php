@@ -12,6 +12,9 @@ use In2code\Migration\Utility\ObjectUtility;
 use In2code\Migration\Utility\TcaUtility;
 use TYPO3\CMS\Core\Database\Query\Restriction\HiddenRestriction;
 use TYPO3\CMS\Core\Database\QueryGenerator;
+use TYPO3\CMS\Core\Resource\Exception\FolderDoesNotExistException;
+use TYPO3\CMS\Core\Resource\Folder;
+use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\SignalSlot\Exception\InvalidSlotException;
 use TYPO3\CMS\Extbase\SignalSlot\Exception\InvalidSlotReturnException;
@@ -164,6 +167,7 @@ class Export
         $this->extendPagesWithTranslations();
         $this->extendWithOtherTables();
         $this->extendWithFiles();
+        $this->extendWithFilesFromCollections();
         $this->extendWithFilesFromLinks();
         $this->extendWithMmRelations();
     }
@@ -231,6 +235,38 @@ class Export
         foreach ((array)$this->jsonArray['records']['sys_file_reference'] as $referenceProperties) {
             $fileIdentifier = (int)$referenceProperties['uid_local'];
             $this->extendWithFilesBasic($fileIdentifier);
+        }
+    }
+
+    /**
+     * Attach files of folder based collections.
+     *
+     * @throws DBALException
+     */
+    protected function extendWithFilesFromCollections(): void
+    {
+        $collections = (array)($this->jsonArray['records']['sys_file_collection'] ?? []);
+        foreach ($collections as $collectionProperties) {
+            if ($collectionProperties['type'] !== 'folder') {
+                continue;
+            }
+            try {
+                $folder = ResourceFactory::getInstance()->getFolderObjectFromCombinedIdentifier(
+                    $collectionProperties['storage'] . ':' . $collectionProperties['folder']
+                );
+            } catch (FolderDoesNotExistException $e) {
+                continue;
+            }
+
+            $files = $folder->getFiles(
+                0,
+                0,
+                Folder::FILTER_MODE_USE_OWN_AND_STORAGE_FILTERS,
+                boolval($collectionProperties['recursive'])
+            );
+            foreach ($files as $file) {
+                $this->extendWithFilesBasic($file->getUid());
+            }
         }
     }
 
